@@ -12,7 +12,7 @@ import androidx.documentfile.provider.DocumentFile
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), BulkEditListener {
 
     private lateinit var statusText: TextView
     private lateinit var recyclerView: RecyclerView
@@ -75,7 +75,65 @@ class MainActivity : AppCompatActivity() {
             adapter.clearSelection()
         }
 
-        // TODO: botón "Aplicar" que tome adapter.getSelectedSongs() y dispare
-        // el motor de patrones Tag<->Filename o el diálogo de edición masiva.
+        findViewById<Button>(R.id.buttonBulkEdit).setOnClickListener {
+            val count = adapter.getSelectedSongs().size
+            if (count == 0) {
+                Toast.makeText(this, "Seleccioná al menos una canción", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            val dialog = BulkEditDialogFragment.newInstance(count)
+            dialog.listener = this
+            dialog.show(supportFragmentManager, "bulk_edit")
+        }
+    }
+
+    override fun onApplyBulkTags(fields: TagFields) {
+        val selected = adapter.getSelectedSongs()
+        // TODO: escribir 'fields' en cada archivo con jaudiotagger (falta esa integración).
+        Toast.makeText(
+            this,
+            "TODO: aplicar tags a ${selected.size} archivo(s) (falta integrar jaudiotagger)",
+            Toast.LENGTH_LONG
+        ).show()
+    }
+
+    override fun onConvertTagToFilename(pattern: String) {
+        // TODO: necesita leer los tags reales de cada archivo con jaudiotagger antes de
+        // poder generar el nombre con PatternEngine.tagsToFilename(pattern, tags).
+        Toast.makeText(
+            this,
+            "TODO: falta leer tags reales (jaudiotagger) para generar el nombre",
+            Toast.LENGTH_LONG
+        ).show()
+    }
+
+    override fun onConvertFilenameToTag(pattern: String) {
+        val selected = adapter.getSelectedSongs()
+        val preview = selected.mapNotNull { song ->
+            val (base, _) = PatternEngine.splitExtension(song.displayName)
+            PatternEngine.filenameToTags(pattern, base)?.let { song.displayName to it }
+        }
+        // TODO: una vez integrado jaudiotagger, escribir cada TagFields de 'preview'
+        // en el archivo real correspondiente en lugar de solo mostrarlo.
+        val summary = preview.joinToString("\n") { (name, tags) ->
+            "$name -> artista=${tags.artist}, título=${tags.title}"
+        }
+        Toast.makeText(
+            this,
+            summary.ifBlank { "Ningún nombre matcheó el patrón" },
+            Toast.LENGTH_LONG
+        ).show()
+    }
+
+    override fun onApplyNumbering(startAt: Int, padding: Int) {
+        val selected = adapter.getSelectedSongs()
+        // TODO: esto todavía no persiste nada; falta escribir el track number real
+        // con jaudiotagger para cada canción de 'selected', en orden.
+        val last = startAt + selected.size - 1
+        Toast.makeText(
+            this,
+            "TODO: asignar tracks $startAt..$last (falta integrar jaudiotagger)",
+            Toast.LENGTH_LONG
+        ).show()
     }
 }
