@@ -4,15 +4,21 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.widget.Button
-import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.documentfile.provider.DocumentFile
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var statusText: TextView
+    private lateinit var recyclerView: RecyclerView
+    private lateinit var adapter: SongAdapter
+
+    private val AUDIO_EXTENSIONS = listOf(".mp3", ".flac", ".m4a", ".ogg", ".wav")
 
     private val pickFolder = registerForActivityResult(
         ActivityResultContracts.OpenDocumentTree()
@@ -25,39 +31,51 @@ class MainActivity : AppCompatActivity() {
         )
 
         val tree = DocumentFile.fromTreeUri(this, uri)
-        val audioFiles = tree?.listFiles()?.filter {
-            it.isFile && (it.name?.endsWith(".mp3", true) == true ||
-                it.name?.endsWith(".flac", true) == true ||
-                it.name?.endsWith(".m4a", true) == true ||
-                it.name?.endsWith(".ogg", true) == true)
-        } ?: emptyList()
+        val songs = tree?.listFiles()
+            ?.filter { doc ->
+                doc.isFile && AUDIO_EXTENSIONS.any { ext ->
+                    doc.name?.endsWith(ext, ignoreCase = true) == true
+                }
+            }
+            ?.map { doc -> Song(doc.uri, doc.name ?: "(sin nombre)") }
+            ?: emptyList()
 
-        // TODO: pasar audioFiles a un adapter de RecyclerView con selección múltiple.
-        // TODO: leer/escribir tags con jaudiotagger (requiere un File real o un
-        //       stream intermedio, ya que jaudiotagger no trabaja directo con Uri de SAF).
-        statusText.text = "Carpeta seleccionada: ${audioFiles.size} archivos de audio"
+        adapter.submitList(songs)
+        statusText.text = "${songs.size} archivos de audio"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
 
-        val layout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(32, 64, 32, 32)
+        statusText = findViewById(R.id.textStatus)
+        recyclerView = findViewById(R.id.recyclerSongs)
+
+        adapter = SongAdapter { selectedCount ->
+            val total = adapter.itemCount
+            statusText.text = if (total == 0) {
+                "Ninguna carpeta seleccionada"
+            } else {
+                "$selectedCount de $total seleccionadas"
+            }
         }
 
-        val pickButton = Button(this).apply {
-            text = "Elegir carpeta de música"
-            setOnClickListener { pickFolder.launch(null) }
+        recyclerView.layoutManager = LinearLayoutManager(this)
+        recyclerView.adapter = adapter
+
+        findViewById<Button>(R.id.buttonPickFolder).setOnClickListener {
+            pickFolder.launch(null)
         }
 
-        statusText = TextView(this).apply {
-            text = "Ninguna carpeta seleccionada"
-            setPadding(0, 32, 0, 0)
+        findViewById<Button>(R.id.buttonSelectAll).setOnClickListener {
+            adapter.selectAll()
         }
 
-        layout.addView(pickButton)
-        layout.addView(statusText)
-        setContentView(layout)
+        findViewById<Button>(R.id.buttonClearSelection).setOnClickListener {
+            adapter.clearSelection()
+        }
+
+        // TODO: botón "Aplicar" que tome adapter.getSelectedSongs() y dispare
+        // el motor de patrones Tag<->Filename o el diálogo de edición masiva.
     }
 }
