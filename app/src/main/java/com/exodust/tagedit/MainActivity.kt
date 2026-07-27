@@ -17,6 +17,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/** Nombre de clase + mensaje (si lo tiene) — más útil que solo .message, que a veces viene null. */
+private fun Throwable.describe(): String =
+    "${javaClass.simpleName}${message?.let { ": $it" } ?: " (sin mensaje)"}"
+
 class MainActivity : AppCompatActivity(), BulkEditListener {
 
     private lateinit var statusText: TextView
@@ -100,6 +104,123 @@ class MainActivity : AppCompatActivity(), BulkEditListener {
 
     private fun refreshCurrentFolder() {
         currentTreeUri?.let { loadSongsFromTree(it) }
+    }
+
+    override fun onApplyBulkTags(fields: TagFields) {
+        val selected = adapter.getSelectedSongs()
+        lifecycleScope.launch(Dispatchers.IO) {
+            var success = 0
+            var firstError: String? = null
+            for (song in selected) {
+                val result = TagIO.writeTags(applicationContext, song, fields)
+                if (result.isSuccess) {
+                    success++
+                } else if (firstError == null) {
+                    firstError = "${song.displayName}: ${result.exceptionOrNull()?.describe()}"
+                }
+            }
+            withContext(Dispatchers.Main) {
+                showResult("Tags aplicados", success, selected.size, firstError)
+            }
+        }
+    }
+
+    override fun onConvertTagToFilename(pattern: String) {
+        val selected = adapter.getSelectedSongs()
+        lifecycleScope.launch(Dispatchers.IO) {
+            var renamed = 0
+            var firstError: String? = null
+            for (song in selected) {
+                val tagsResult = TagIO.readTags(applicationContext, song)
+                val tags = tagsResult.getOrNull()
+                if (tags == null) {
+                    if (firstError == null) {
+                        firstError = "Leyendo ${song.displayName}: ${tagsResult.exceptionOrNull()?.describe()}"
+                    }
+                    continue
+                }
+                val (_, ext) = PatternEngine.splitExtension(song.displayName)
+                val newName = PatternEngine.tagsToFilename(pattern, tags) + ext
+                val renameResult = TagIO.renameFile(applicationContext, song, newName)
+                if (renameResult.isSuccess) {
+                    renamed++
+                } else if (firstError == null) {
+                    firstError = "Renombrando ${song.displayName}: ${renameResult.exceptionOrNull()?.describe()}"
+                }
+            }
+            withContext(Dispatchers.Main) {
+                showResult("Renombrados", renamed, selected.size, firstError)
+                refreshCurrentFolder()
+            }
+        }
+    }
+
+    override fun onConvertFilenameToTag(pattern: String) {
+        val selected = adapter.getSelectedSongs()
+        lifecycleScope.launch(Dispatchers.IO) {
+            var success = 0
+            var firstError: String? = null
+            for (song in selected) {
+                val (base, _) = PatternEngine.splitExtension(song.displayName)
+                val tags = PatternEngine.filenameToTags(pattern, base)
+                if (tags == null) {
+                    if (firstError == null) {
+                        firstError = "${song.displayName} no matchea el patrón"
+                    }
+                    continue
+                }
+                val result = TagIO.writeTags(applicationContext, song, tags)
+                if (result.isSuccess) {
+                    success++
+                } else if (firstError == null) {
+                    firstError = "${song.displayName}: ${result.exceptionOrNull()?.describe()}"
+                }
+            }
+            withContext(Dispatchers.Main) {
+                showResult("Tags escritos", success, selected.size, firstError)
+            }
+        }
+    }
+
+    override fun onApplyNumbering(startAt: Int, padding: Int) {
+        val selected = adapter.getSelectedSongs()
+        lifecycleScope.launch(Dispatchers.IO) {
+            var success = 0
+            var firstError: String? = null
+            selected.forEachIndexed { index, song ->
+                val trackNumber = (startAt + index).toString().padStart(padding, '0')
+                val result = TagIO.writeTags(applicationContext, song, TagFields(track = trackNumber))
+                if (result.isSuccess) {
+                    success++
+                } else if (firstError == null) {
+                    firstError = "${song.displayName}: ${result.exceptionOrNull()?.describe()}"
+                }
+            }
+            withContext(Dispatchers.Main) {
+                showResult("Numerados", success, selected.size, firstError)
+            }
+        }
+    }
+
+    /** Muestra el conteo de éxito por Toast; si hubo algún fallo, abre un diálogo con el error completo. */
+    private fun showResult(action: String, success: Int, total: Int, firstError: String?) {
+        val base = "$action: $success de $total archivo(s)"
+        Toast.makeText(this, base, Toast.LENGTH_SHORT).show()
+
+        if (firstError != null) {
+            val messageView = TextView(this).apply {
+                text = firstError
+                setPadding(48, 32, 48, 32)
+                setTextIsSelectable(true)
+            }
+            AlertDialog.Builder(this)
+                .setTitle(base)
+                .setView(messageView)
+                .setPositiveButton("OK", null)
+                .show()
+        }
+    }
+}
     }
 
     override fun onApplyBulkTags(fields: TagFields) {
