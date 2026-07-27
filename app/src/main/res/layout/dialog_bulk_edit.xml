@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:id="@+id/textSelectionCount"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Edición masiva de tags -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Editar tags (vacío = no tocar)"
+            android:textStyle="bold" />
+
+        <EditText android:id="@+id/editArtist" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:hint="Artista" />
+        <EditText android:id="@+id/editAlbum" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:hint="Álbum" />
+        <EditText android:id="@+id/editAlbumArtist" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:hint="Artista del álbum" />
+        <EditText android:id="@+id/editYear" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:hint="Año" android:inputType="number" />
+        <EditText android:id="@+id/editGenre" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:hint="Género" />
+        <EditText android:id="@+id/editComment" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:hint="Comentario" />
+
+        <Button
+            android:id="@+id/buttonApplyTags"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end"
+            android:text="Aplicar tags" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#33000000"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Conversión Tag <-> Filename -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Convertir Tag ↔ Nombre de archivo"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/editPattern"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="%track% - %artist% - %title%" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="8dp">
+
+            <Button
+                android:id="@+id/buttonTagToFilename"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Tag → Nombre" />
+
+            <Button
+                android:id="@+id/buttonFilenameToTag"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:text="Nombre → Tag" />
+
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#33000000"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Numeración automática -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Numeración automática de pistas"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="8dp">
+
+            <EditText
+                android:id="@+id/editStartNumber"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="Empieza en"
+                android:inputType="number"
+                android:text="1" />
+
+            <EditText
+                android:id="@+id/editPadding"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:hint="Dígitos"
+                android:inputType="number"
+                android:text="2" />
+
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/buttonApplyNumbering"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end"
+            android:layout_marginTop="8dp"
+            android:text="Aplicar numeración" />
+
+    </LinearLayout>
+
+</ScrollView>
