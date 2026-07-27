@@ -9,14 +9,20 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.documentfile.provider.DocumentFile
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : AppCompatActivity(), BulkEditListener {
 
     private lateinit var statusText: TextView
     private lateinit var recyclerView: RecyclerView
     private lateinit var adapter: SongAdapter
+
+    private var currentTreeUri: Uri? = null
 
     private val AUDIO_EXTENSIONS = listOf(".mp3", ".flac", ".m4a", ".ogg", ".wav")
 
@@ -29,19 +35,8 @@ class MainActivity : AppCompatActivity(), BulkEditListener {
             uri,
             Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
         )
-
-        val tree = DocumentFile.fromTreeUri(this, uri)
-        val songs = tree?.listFiles()
-            ?.filter { doc ->
-                doc.isFile && AUDIO_EXTENSIONS.any { ext ->
-                    doc.name?.endsWith(ext, ignoreCase = true) == true
-                }
-            }
-            ?.map { doc -> Song(doc.uri, doc.name ?: "(sin nombre)") }
-            ?: emptyList()
-
-        adapter.submitList(songs)
-        statusText.text = "${songs.size} archivos de audio"
+        currentTreeUri = uri
+        loadSongsFromTree(uri)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -87,53 +82,97 @@ class MainActivity : AppCompatActivity(), BulkEditListener {
         }
     }
 
+    private fun loadSongsFromTree(uri: Uri) {
+        val tree = DocumentFile.fromTreeUri(this, uri)
+        val songs = tree?.listFiles()
+            ?.filter { doc ->
+                doc.isFile && AUDIO_EXTENSIONS.any { ext ->
+                    doc.name?.endsWith(ext, ignoreCase = true) == true
+                }
+            }
+            ?.map { doc -> Song(doc.uri, doc.name ?: "(sin nombre)") }
+            ?: emptyList()
+
+        adapter.submitList(songs)
+        statusText.text = "${songs.size} archivos de audio"
+    }
+
+    private fun refreshCurrentFolder() {
+        currentTreeUri?.let { loadSongsFromTree(it) }
+    }
+
     override fun onApplyBulkTags(fields: TagFields) {
         val selected = adapter.getSelectedSongs()
-        // TODO: escribir 'fields' en cada archivo con jaudiotagger (falta esa integración).
-        Toast.makeText(
-            this,
-            "TODO: aplicar tags a ${selected.size} archivo(s) (falta integrar jaudiotagger)",
-            Toast.LENGTH_LONG
-        ).show()
+        lifecycleScope.launch(Dispatchers.IO) {
+            var success = 0
+            for (song in selected) {
+                if (TagIO.writeTags(applicationContext, song, fields)) success++
+            }
+            withContext(Dispatchers.Main) {
+                Toast.makeText(
+                    this@MainActivity,
+                    "Tags aplicados en $success de ${selected.size} archivo(s)",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
     }
 
     override fun onConvertTagToFilename(pattern: String) {
-        // TODO: necesita leer los tags reales de cada archivo con jaudiotagger antes de
-        // poder generar el nombre con PatternEngine.tagsToFilename(pattern, tags).
-        Toast.makeText(
-            this,
-            "TODO: falta leer tags reales (jaudiotagger) para generar el nombre",
-            Toast.LENGTH_LONG
-        ).show()
+        val selected = adapter.getSelectedSongs()
+        lifecycleScope.launch(Dispatchers.IO) {
+            var renamed = 0
+            for (song in selected) {
+                val tags = TagIO.readTags(applicationContext, song) ?: continue
+                val (_, ext) = PatternEngine.splitExtension(song.displayName)
+                val newName = PatternEngine.tagsToFilename(pattern, tags) + ext
+                if (TagIO.renameFile(applicationContext, song, newName)) renamed++
+            }
+            withContext(Dispatchers.Main) {
+                Toast.makeText(
+                    this@MainActivity,
+                    "Renombrados $renamed de ${selected.size} archivo(s)",
+                    Toast.LENGTH_LONG
+                ).show()
+                refreshCurrentFolder()
+            }
+        }
     }
 
     override fun onConvertFilenameToTag(pattern: String) {
         val selected = adapter.getSelectedSongs()
-        val preview = selected.mapNotNull { song ->
-            val (base, _) = PatternEngine.splitExtension(song.displayName)
-            PatternEngine.filenameToTags(pattern, base)?.let { song.displayName to it }
+        lifecycleScope.launch(Dispatchers.IO) {
+            var success = 0
+            for (song in selected) {
+                val (base, _) = PatternEngine.splitExtension(song.displayName)
+                val tags = PatternEngine.filenameToTags(pattern, base) ?: continue
+                if (TagIO.writeTags(applicationContext, song, tags)) success++
+            }
+            withContext(Dispatchers.Main) {
+                Toast.makeText(
+                    this@MainActivity,
+                    "Tags escritos en $success de ${selected.size} archivo(s)",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
         }
-        // TODO: una vez integrado jaudiotagger, escribir cada TagFields de 'preview'
-        // en el archivo real correspondiente en lugar de solo mostrarlo.
-        val summary = preview.joinToString("\n") { (name, tags) ->
-            "$name -> artista=${tags.artist}, título=${tags.title}"
-        }
-        Toast.makeText(
-            this,
-            summary.ifBlank { "Ningún nombre matcheó el patrón" },
-            Toast.LENGTH_LONG
-        ).show()
     }
 
     override fun onApplyNumbering(startAt: Int, padding: Int) {
         val selected = adapter.getSelectedSongs()
-        // TODO: esto todavía no persiste nada; falta escribir el track number real
-        // con jaudiotagger para cada canción de 'selected', en orden.
-        val last = startAt + selected.size - 1
-        Toast.makeText(
-            this,
-            "TODO: asignar tracks $startAt..$last (falta integrar jaudiotagger)",
-            Toast.LENGTH_LONG
-        ).show()
+        lifecycleScope.launch(Dispatchers.IO) {
+            var success = 0
+            selected.forEachIndexed { index, song ->
+                val trackNumber = (startAt + index).toString().padStart(padding, '0')
+                if (TagIO.writeTags(applicationContext, song, TagFields(track = trackNumber))) success++
+            }
+            withContext(Dispatchers.Main) {
+                Toast.makeText(
+                    this@MainActivity,
+                    "Numerados $success de ${selected.size} archivo(s)",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
     }
 }
