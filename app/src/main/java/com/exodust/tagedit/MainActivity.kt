@@ -127,6 +127,7 @@ class MainActivity : AppCompatActivity(), BulkEditListener {
 
     override fun onConvertTagToFilename(pattern: String) {
         val selected = adapter.getSelectedSongs()
+        val parentDir = currentTreeUri?.let { DocumentFile.fromTreeUri(applicationContext, it) }
         lifecycleScope.launch(Dispatchers.IO) {
             var renamed = 0
             var firstError: String? = null
@@ -141,7 +142,7 @@ class MainActivity : AppCompatActivity(), BulkEditListener {
                 }
                 val (_, ext) = PatternEngine.splitExtension(song.displayName)
                 val newName = PatternEngine.tagsToFilename(pattern, tags) + ext
-                val renameResult = TagIO.renameFile(applicationContext, song, newName)
+                val renameResult = TagIO.renameFile(applicationContext, song, newName, parentDir)
                 if (renameResult.isSuccess) {
                     renamed++
                 } else if (firstError == null) {
