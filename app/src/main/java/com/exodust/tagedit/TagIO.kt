@@ -85,11 +85,48 @@ object TagIO {
         }
     }.onFailure { Log.e(TAG, "writeTags falló para ${song.displayName}", it) }
 
-    /** Renombra el archivo apuntado por [song] a [newDisplayName] (con extensión incluida). */
-    fun renameFile(context: Context, song: Song, newDisplayName: String): Result<Unit> = runCatching {
+    /**
+     * Renombra el archivo apuntado por [song] a [newDisplayName] (con extensión incluida).
+     *
+     * Algunos proveedores de SAF (notoriamente el de MIUI/Xiaomi) no implementan el rename
+     * directo y tiran UnsupportedOperationException. Si eso pasa y se pasó [parentDir], se
+     * hace un fallback: crear un documento nuevo con el nombre deseado, copiar el contenido,
+     * y borrar el original.
+     */
+    fun renameFile(
+        context: Context,
+        song: Song,
+        newDisplayName: String,
+        parentDir: DocumentFile? = null
+    ): Result<Unit> = runCatching {
         val doc = DocumentFile.fromSingleUri(context, song.uri)
             ?: throw IOException("No se encontró el DocumentFile para ${song.uri}")
-        val ok = doc.renameTo(newDisplayName)
-        if (!ok) throw IOException("renameTo devolvió false para $newDisplayName")
+
+        val directRenameOk = try {
+            doc.renameTo(newDisplayName)
+        } catch (e: Exception) {
+            Log.w(TAG, "renameTo directo falló para ${song.displayName}, se prueba fallback", e)
+            false
+        }
+
+        if (directRenameOk) return@runCatching
+
+        if (parentDir == null) {
+            throw IOException("El proveedor no soporta rename directo y no hay carpeta padre para el fallback")
+        }
+
+        val mimeType = context.contentResolver.getType(song.uri) ?: "application/octet-stream"
+        val newDoc = parentDir.createFile(mimeType, newDisplayName)
+            ?: throw IOException("No se pudo crear $newDisplayName (fallback copiar+borrar)")
+
+        context.contentResolver.openInputStream(song.uri)?.use { input ->
+            context.contentResolver.openOutputStream(newDoc.uri)?.use { output ->
+                input.copyTo(output)
+            } ?: throw IOException("No se pudo abrir $newDisplayName para escritura")
+        } ?: throw IOException("No se pudo abrir ${song.uri} para lectura")
+
+        if (!doc.delete()) {
+            Log.w(TAG, "Se copió a $newDisplayName pero no se pudo borrar el original ${song.displayName}")
+        }
     }.onFailure { Log.e(TAG, "renameFile falló para ${song.displayName} -> $newDisplayName", it) }
 }
