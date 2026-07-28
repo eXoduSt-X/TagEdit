@@ -1,0 +1,29 @@
+<resources>
+    <!-- Theme.MaterialComponents (sin ".Light") es oscuro por default, así que forzamos
+         gris oscuro siempre, independiente del modo claro/oscuro del sistema. -->
+    <style name="Theme.TagEdit" parent="Theme.MaterialComponents.NoActionBar">
+        <item name="android:windowBackground">@color/app_background</item>
+        <item name="android:colorBackground">@color/app_background</item>
+        <item name="android:buttonStyle">@style/Widget.TagEdit.Button</item>
+        <item name="android:textColorPrimary">@color/text_white</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+    </style>
+
+    <style name="Widget.TagEdit.Button" parent="Widget.AppCompat.Button">
+        <item name="android:backgroundTint">@color/button_background</item>
+        <item name="android:textColor">@color/text_white</item>
+    </style>
+
+    <style name="Widget.TagEdit.Button.Small">
+        <item name="android:backgroundTint">@color/button_background</item>
+        <item name="android:textColor">@color/text_white</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:minHeight">0dp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:paddingStart">12dp</item>
+        <item name="android:paddingEnd">12dp</item>
+        <item name="android:paddingTop">6dp</item>
+        <item name="android:paddingBottom">6dp</item>
+    </style>
+</resources>
